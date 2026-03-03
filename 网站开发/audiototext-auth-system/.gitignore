@@ -1,0 +1,4 @@
+claude-progress.txt
+__pycache__/
+*.pyc
+data/

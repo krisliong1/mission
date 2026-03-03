@@ -1,0 +1,32 @@
+<!-- User status bar -->
+<div>
+    <p>Logged in as: <span id="user-name">[name]</span></p>
+    <p>Usage today: <span id="usage-today">[usage]</span></p>
+</div>
+
+<!-- Upgrade modal -->
+<div id="upgrade-modal" style="display: none;">
+    <h2>Upgrade to Pro</h2>
+    <p>Get unlimited transcriptions and more features with our Pro plan.</p>
+    <button id="upgrade-button">Upgrade now</button>
+</div>
+
+<!-- Script to update user status bar and show upgrade modal -->
+<script>
+    // Update user status bar
+    fetch('/api/auth/me')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('user-name').innerHTML = data.name;
+            document.getElementById('usage-today').innerHTML = data.usage_today;
+        });
+
+    // Show upgrade modal if user is on free plan and has reached usage limit
+    fetch('/api/subscription/status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.plan === 'free' && data.usage_today >= 3) {
+                document.getElementById('upgrade-modal').style.display = 'block';
+            }
+        });
+</script>

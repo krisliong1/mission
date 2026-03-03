@@ -1,0 +1,131 @@
+# OskrisTranscribe — Auth & Subscription System Spec
+# Project: audiototext.oskris.com login + subscription (RM0 / RM29/month)
+# Stack: FastAPI (Python) + SQLite + JWT + Google OAuth + Stripe
+
+## OVERVIEW
+Add authentication and subscription management to the existing OskrisTranscribe
+audio/video transcription service. Currently the service has no auth and allows
+unlimited free use. We need to add:
+- Email/password registration and login
+- Google OAuth login
+- Free tier: 3 transcriptions/day
+- Pro tier: RM29/month, unlimited transcriptions
+- User dashboard showing usage stats
+
+## EXISTING BACKEND (DO NOT BREAK)
+File: server_current.py
+Existing routes (must remain working):
+- POST /api/transcribe/youtube  - transcribe YouTube URLs
+- POST /api/transcribe/audio    - upload audio file and transcribe
+- POST /api/transcribe/video    - upload video file and transcribe
+- GET  /health                  - health check
+
+The existing server uses:
+- FastAPI + uvicorn
+- faster-whisper (Large V3 Turbo) for transcription
+- IP-based rate limiting (3 requests/60s)
+- Response format: {"text": "...", "meta": {"duration", "word_count", "language"}}
+
+## NEW BACKEND REQUIREMENTS
+
+### Database (SQLite, file: /var/www/audiototext-api/data/users.db)
+Tables needed:
+- users: id, email, password_hash, name, google_id, created_at, is_verified
+- subscriptions: id, user_id, plan (free/pro), status, start_date, end_date, stripe_customer_id
+- usage: id, user_id, date, transcription_count
+- sessions: id, user_id, token, expires_at, created_at
+
+### Auth Endpoints (add to existing server.py)
+- POST /api/auth/register         - email + password + name registration
+- POST /api/auth/login            - email + password login, returns JWT
+- POST /api/auth/logout           - invalidate session token
+- POST /api/auth/google           - Google OAuth token exchange
+- GET  /api/auth/me               - get current user profile (requires auth)
+- POST /api/auth/refresh          - refresh expired JWT
+- POST /api/auth/forgot-password  - send reset email (stub: just return success)
+
+### Subscription Endpoints
+- GET  /api/subscription/status   - get user's current plan and usage
+- GET  /api/subscription/plans    - list available plans with pricing
+- POST /api/subscription/upgrade  - initiate Stripe checkout (or stub returning fake URL)
+- POST /api/webhook/stripe        - handle Stripe webhooks (stub OK for now)
+
+### Auth Middleware
+- All /api/transcribe/* routes must check JWT token
+- Free users: max 3 transcriptions per day (reset at midnight SGT)
+- Pro users: unlimited
+- Unauthenticated requests: return 401 with {"error": "Login required", "login_url": "https://audiototext.oskris.com/login"}
+
+### JWT Configuration
+- Secret: use env var JWT_SECRET (default: "oskris-jwt-secret-2026")
+- Expiry: 7 days
+- Algorithm: HS256
+
+### Google OAuth
+- Client ID: 231527796468-c4j3atqots1898m1kf38jd1td9uv1voo.apps.googleusercontent.com
+- Redirect URI: https://api.oskris.com/api/auth/google/callback
+- Scopes: email, profile
+
+### CORS
+Allow origins: https://audiototext.oskris.com, http://localhost:3000, http://localhost:8080
+
+## FRONTEND REQUIREMENTS
+
+### New Pages/Components (add to existing index.html or create new files)
+The frontend is a single HTML file at: audiototext.oskris.com (Hostinger)
+
+1. **Login Modal** (shown when unauthenticated user tries to transcribe)
+   - Email + password fields
+   - "Sign in with Google" button
+   - "Don't have account? Register" link
+   - Forgot password link
+
+2. **Register Modal**
+   - Name, email, password, confirm password
+   - Terms acceptance checkbox
+   - "Sign up with Google" button
+
+3. **User Header Bar** (shown when logged in)
+   - User name/avatar
+   - Usage counter: "2/3 today" (free) or "Unlimited" (pro)
+   - Upgrade button (for free users)
+   - Logout button
+
+4. **Subscription/Upgrade Page** (new page or modal)
+   - Free plan: RM0/month, 3 transcriptions/day
+   - Pro plan: RM29/month, unlimited
+   - Payment button (Stripe Checkout)
+   - Currently on: highlight active plan
+
+5. **Usage Limiter**
+   - After 3 transcriptions (free) show upgrade prompt modal
+   - Store JWT token in localStorage
+   - Send Authorization: Bearer <token> header with all transcribe requests
+
+## PRICING
+- Free: RM0/month, 3 transcriptions per day
+- Pro: RM29/month, unlimited transcriptions
+- Currency: Malaysian Ringgit (RM)
+
+## TECHNICAL CONSTRAINTS
+- Python 3.11, FastAPI, uvicorn
+- No Redis (use SQLite for sessions)
+- No separate auth service (add to existing server.py)
+- JWT tokens stored in localStorage (acceptable for MVP)
+- Passwords hashed with bcrypt
+- For Stripe: use test mode keys, stub if keys not available
+
+## DEPLOYMENT
+- Backend runs on VPS: root@76.13.191.45
+- Path: /var/www/audiototext-api/server.py
+- Restart: systemctl restart audiototext-api (or: kill uvicorn + restart)
+- Frontend: currently on Hostinger (will be deployed manually after dev)
+
+## SUCCESS CRITERIA
+All these flows work end-to-end:
+1. New user registers with email → can transcribe 3 times → blocked on 4th
+2. Existing user logs in → continues transcription
+3. Google OAuth login → user created/found → JWT issued
+4. Pro user → unlimited transcriptions
+5. Usage counter visible in UI
+6. Logout works, token invalidated

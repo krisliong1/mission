@@ -1,0 +1,837 @@
+[
+  {
+    "category": "functional",
+    "description": "POST /api/auth/register with valid name, email, password returns 200 and JWT token",
+    "steps": [
+      "Send POST /api/auth/register with {name, email, password}",
+      "Verify response status is 200",
+      "Verify response contains access_token field",
+      "Verify token is a valid JWT string"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/auth/register with duplicate email returns 400 error",
+    "steps": [
+      "Register a user with email test@example.com",
+      "Send second POST /api/auth/register with same email",
+      "Verify response status is 400",
+      "Verify response contains error message about duplicate email"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/auth/register with invalid email format returns 422",
+    "steps": [
+      "Send POST /api/auth/register with email='not-an-email'",
+      "Verify response status is 422",
+      "Verify validation error mentions email field"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/auth/register with missing name field returns 422",
+    "steps": [
+      "Send POST /api/auth/register with only {email, password} (no name)",
+      "Verify response status is 422"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/auth/register creates user record in SQLite users table",
+    "steps": [
+      "Register a new user via POST /api/auth/register",
+      "Query SQLite users table for the registered email",
+      "Verify user row exists with correct email and name"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/auth/register stores password as bcrypt hash (not plaintext)",
+    "steps": [
+      "Register user with password 'testpassword123'",
+      "Query SQLite users table for password_hash column",
+      "Verify stored value starts with $2b$ (bcrypt format)",
+      "Verify stored value is NOT equal to 'testpassword123'"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/auth/register automatically assigns free plan to new user",
+    "steps": [
+      "Register a new user",
+      "Query SQLite subscriptions table for the new user",
+      "Verify plan='free' and status='active'"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/auth/login with valid email and password returns 200 and JWT",
+    "steps": [
+      "Register a user first",
+      "Send POST /api/auth/login with {email, password}",
+      "Verify response status is 200",
+      "Verify response contains access_token"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/auth/login with wrong password returns 401",
+    "steps": [
+      "Register a user with known password",
+      "Send POST /api/auth/login with wrong password",
+      "Verify response status is 401"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/auth/login with non-existent email returns 401",
+    "steps": [
+      "Send POST /api/auth/login with email that was never registered",
+      "Verify response status is 401"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "JWT token uses HS256 algorithm",
+    "steps": [
+      "Login and obtain JWT token",
+      "Decode JWT header (base64)",
+      "Verify alg field equals 'HS256'"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "JWT token expires after 7 days",
+    "steps": [
+      "Login and obtain JWT token",
+      "Decode JWT payload (base64)",
+      "Verify exp - iat equals approximately 604800 seconds (7 days)"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "JWT payload contains user_id claim",
+    "steps": [
+      "Login and obtain JWT token",
+      "Decode JWT payload",
+      "Verify sub or user_id field exists and is a valid integer"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/auth/logout invalidates session token in DB",
+    "steps": [
+      "Login and get token",
+      "Send POST /api/auth/logout with Authorization: Bearer <token>",
+      "Verify response status is 200",
+      "Query SQLite sessions table: verify token is removed or marked invalid"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Using token after logout returns 401",
+    "steps": [
+      "Login and get token",
+      "Send POST /api/auth/logout",
+      "Send GET /api/auth/me with the same token",
+      "Verify response status is 401"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/auth/logout without token returns 401",
+    "steps": [
+      "Send POST /api/auth/logout with no Authorization header",
+      "Verify response status is 401"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/auth/google with valid Google ID token creates new user and returns JWT",
+    "steps": [
+      "Send POST /api/auth/google with a valid Google ID token",
+      "Verify response status is 200",
+      "Verify response contains access_token",
+      "Verify new user row created in SQLite users table with google_id set"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/auth/google with Google token for existing email links accounts",
+    "steps": [
+      "Register a user with email same as Google account",
+      "Send POST /api/auth/google with Google ID token for that email",
+      "Verify response returns JWT for existing user (no duplicate user created)",
+      "Verify users table has only one row for that email"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/auth/google stores google_id in users table",
+    "steps": [
+      "Send POST /api/auth/google with valid Google token",
+      "Query users table for the created/updated user",
+      "Verify google_id column is populated"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/auth/google assigns user name from Google profile",
+    "steps": [
+      "Send POST /api/auth/google with Google token for account with name 'John Doe'",
+      "Verify created user has name='John Doe' in users table"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "GET /api/auth/me with valid JWT returns current user profile",
+    "steps": [
+      "Login and get token",
+      "Send GET /api/auth/me with Authorization: Bearer <token>",
+      "Verify response status is 200",
+      "Verify response contains email, name, and plan fields"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "GET /api/auth/me without token returns 401",
+    "steps": [
+      "Send GET /api/auth/me with no Authorization header",
+      "Verify response status is 401"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "GET /api/auth/me returns today's transcription usage count",
+    "steps": [
+      "Login as free user",
+      "Transcribe one audio",
+      "Send GET /api/auth/me",
+      "Verify response includes usage_today field equal to 1"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/auth/refresh with valid expired JWT returns new JWT",
+    "steps": [
+      "Obtain a valid JWT",
+      "Send POST /api/auth/refresh with the token",
+      "Verify response status is 200",
+      "Verify response contains new access_token"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/auth/forgot-password returns 200 success stub",
+    "steps": [
+      "Send POST /api/auth/forgot-password with {email: 'any@example.com'}",
+      "Verify response status is 200",
+      "Verify response contains success message"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/transcribe/youtube without JWT returns 401 with login_url",
+    "steps": [
+      "Send POST /api/transcribe/youtube with no Authorization header",
+      "Verify response status is 401",
+      "Verify response body contains error field",
+      "Verify response body contains login_url field pointing to /login"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/transcribe/audio without JWT returns 401 with login_url",
+    "steps": [
+      "Send POST /api/transcribe/audio with no Authorization header",
+      "Verify response status is 401",
+      "Verify response body contains login_url field"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/transcribe/video without JWT returns 401 with login_url",
+    "steps": [
+      "Send POST /api/transcribe/video with no Authorization header",
+      "Verify response status is 401",
+      "Verify response body contains login_url field"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/transcribe/youtube with invalid JWT returns 401",
+    "steps": [
+      "Send POST /api/transcribe/youtube with Authorization: Bearer invalid.jwt.token",
+      "Verify response status is 401"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "GET /health returns 200 without any authentication",
+    "steps": [
+      "Send GET /health with no token",
+      "Verify response status is 200"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Free user: first transcription succeeds",
+    "steps": [
+      "Register/login as free user",
+      "Send POST /api/transcribe/youtube with valid JWT",
+      "Verify response status is 200",
+      "Verify usage_count for today equals 1 in usage table"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Free user: second transcription succeeds",
+    "steps": [
+      "Login as free user with 1 transcription already done today",
+      "Send second POST /api/transcribe/youtube with valid JWT",
+      "Verify response status is 200"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Free user: third transcription succeeds",
+    "steps": [
+      "Login as free user with 2 transcriptions already done today",
+      "Send third POST /api/transcribe/youtube with valid JWT",
+      "Verify response status is 200"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Free user: fourth transcription returns 429 with upgrade message",
+    "steps": [
+      "Login as free user with 3 transcriptions already done today",
+      "Send fourth POST /api/transcribe/youtube with valid JWT",
+      "Verify response status is 429",
+      "Verify response body mentions upgrade or limit reached"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Free user daily limit resets at midnight SGT (Asia/Singapore timezone)",
+    "steps": [
+      "Login as free user",
+      "Manually insert 3 usage records for yesterday's date in usage table",
+      "Send POST /api/transcribe/youtube with valid JWT",
+      "Verify transcription succeeds (today's count starts fresh)"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Each transcription increments usage count in SQLite usage table",
+    "steps": [
+      "Login as free user",
+      "Perform one transcription",
+      "Query usage table for user_id + today's date",
+      "Verify transcription_count equals 1"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Pro user: can transcribe more than 3 times in a day",
+    "steps": [
+      "Set user's subscription plan to 'pro' in subscriptions table",
+      "Login and perform 4+ transcriptions",
+      "Verify all transcriptions return 200 (no 429)"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Pro user: can transcribe 10+ times in a day (unlimited)",
+    "steps": [
+      "Set user subscription to pro",
+      "Perform 10 transcription requests with valid JWT",
+      "Verify all 10 return 200 status"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "GET /api/subscription/status returns plan, status, and daily usage",
+    "steps": [
+      "Login and do 2 transcriptions",
+      "Send GET /api/subscription/status with Authorization header",
+      "Verify response contains plan field",
+      "Verify response contains usage_today field equal to 2",
+      "Verify response contains daily_limit field (3 for free)"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "GET /api/subscription/status without token returns 401",
+    "steps": [
+      "Send GET /api/subscription/status with no Authorization header",
+      "Verify response status is 401"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "GET /api/subscription/plans returns both free and pro plans",
+    "steps": [
+      "Send GET /api/subscription/plans (no auth required)",
+      "Verify response status is 200",
+      "Verify response contains array/object with 'free' plan entry",
+      "Verify response contains 'pro' plan entry"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "GET /api/subscription/plans shows RM0/month for free plan",
+    "steps": [
+      "Send GET /api/subscription/plans",
+      "Verify free plan price is 0 (RM0/month)",
+      "Verify free plan daily_limit is 3"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "GET /api/subscription/plans shows RM29/month for pro plan",
+    "steps": [
+      "Send GET /api/subscription/plans",
+      "Verify pro plan price is 29 (RM29/month)",
+      "Verify pro plan shows unlimited transcriptions"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/subscription/upgrade with valid auth returns checkout URL",
+    "steps": [
+      "Login as free user",
+      "Send POST /api/subscription/upgrade with Authorization header",
+      "Verify response status is 200",
+      "Verify response contains checkout_url field (Stripe URL or stub URL)"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/subscription/upgrade without token returns 401",
+    "steps": [
+      "Send POST /api/subscription/upgrade with no Authorization header",
+      "Verify response status is 401"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/webhook/stripe responds with 200 (stub handler)",
+    "steps": [
+      "Send POST /api/webhook/stripe with Stripe-like payload",
+      "Verify response status is 200"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "SQLite users table has all required columns",
+    "steps": [
+      "Start the server (creates DB on startup)",
+      "Query SQLite PRAGMA table_info(users)",
+      "Verify columns: id, email, password_hash, name, google_id, created_at, is_verified"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "SQLite subscriptions table has all required columns",
+    "steps": [
+      "Query SQLite PRAGMA table_info(subscriptions)",
+      "Verify columns: id, user_id, plan, status, start_date, end_date, stripe_customer_id"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "SQLite usage table has all required columns",
+    "steps": [
+      "Query SQLite PRAGMA table_info(usage)",
+      "Verify columns: id, user_id, date, transcription_count"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "SQLite sessions table has all required columns",
+    "steps": [
+      "Query SQLite PRAGMA table_info(sessions)",
+      "Verify columns: id, user_id, token, expires_at, created_at"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "CORS headers allow origin https://audiototext.oskris.com",
+    "steps": [
+      "Send OPTIONS request with Origin: https://audiototext.oskris.com",
+      "Verify response includes Access-Control-Allow-Origin: https://audiototext.oskris.com"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "CORS headers allow origin http://localhost:3000",
+    "steps": [
+      "Send OPTIONS request with Origin: http://localhost:3000",
+      "Verify response includes Access-Control-Allow-Origin: http://localhost:3000"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "CORS headers allow Authorization header in requests",
+    "steps": [
+      "Send OPTIONS preflight for /api/auth/me",
+      "Verify Access-Control-Allow-Headers includes Authorization"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/transcribe/youtube still works end-to-end with valid auth",
+    "steps": [
+      "Login and get JWT",
+      "Send POST /api/transcribe/youtube with {url: 'valid_youtube_url'} and Authorization header",
+      "Verify response status is 200",
+      "Verify response contains {text, meta} fields"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/transcribe/audio still works end-to-end with valid auth",
+    "steps": [
+      "Login and get JWT",
+      "Send POST /api/transcribe/audio with audio file upload and Authorization header",
+      "Verify response status is 200",
+      "Verify response contains text field"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "POST /api/transcribe/video still works end-to-end with valid auth",
+    "steps": [
+      "Login and get JWT",
+      "Send POST /api/transcribe/video with video file upload and Authorization header",
+      "Verify response status is 200",
+      "Verify response contains text field"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "JWT token is stored in localStorage after login",
+    "steps": [
+      "Open browser and complete login flow",
+      "Open browser devtools > Application > localStorage",
+      "Verify JWT token exists in localStorage under a recognizable key"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend sends Authorization: Bearer <token> header with transcribe requests",
+    "steps": [
+      "Login via frontend",
+      "Trigger a transcription from the UI",
+      "Inspect network request in devtools",
+      "Verify Authorization: Bearer <token> header is present"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Free user sees upgrade modal after 3rd transcription attempt",
+    "steps": [
+      "Login as free user",
+      "Perform 3 transcriptions via the UI",
+      "Attempt a 4th transcription",
+      "Verify upgrade prompt modal appears in the UI"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "Login modal displays with email input field",
+    "steps": [
+      "Open the app as unauthenticated user",
+      "Click 'Transcribe' or trigger login modal",
+      "Verify modal is visible",
+      "Verify email input field is present and has type='email'"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "Login modal displays with password input field",
+    "steps": [
+      "Open login modal",
+      "Verify password input field is present with type='password'"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "Login modal has 'Sign in with Google' button with Google branding",
+    "steps": [
+      "Open login modal",
+      "Verify Google sign-in button exists",
+      "Verify button has Google logo or 'Google' text"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "Login modal has link to Register modal",
+    "steps": [
+      "Open login modal",
+      "Verify 'Don't have account? Register' link or button is visible"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "Login modal has 'Forgot password' link",
+    "steps": [
+      "Open login modal",
+      "Verify 'Forgot password' link is visible and clickable"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "Login modal is shown when unauthenticated user attempts to transcribe",
+    "steps": [
+      "Ensure user is not logged in (no JWT in localStorage)",
+      "Click the transcribe/submit button",
+      "Verify login modal appears"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "Register modal has name input field",
+    "steps": [
+      "Open register modal (from login modal link or direct)",
+      "Verify name input field is present"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "Register modal has email input field",
+    "steps": [
+      "Open register modal",
+      "Verify email input field is present with type='email'"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "Register modal has password and confirm password fields",
+    "steps": [
+      "Open register modal",
+      "Verify password input (type='password') is present",
+      "Verify confirm password input (type='password') is present"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "Register modal has terms acceptance checkbox",
+    "steps": [
+      "Open register modal",
+      "Verify checkbox with terms text is present",
+      "Verify register button is disabled when checkbox is unchecked"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "Register modal has 'Sign up with Google' button",
+    "steps": [
+      "Open register modal",
+      "Verify Google sign-up button is visible with Google branding"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "User header bar shows user name when logged in",
+    "steps": [
+      "Login as user with name 'Alice'",
+      "Verify header bar is visible",
+      "Verify 'Alice' or user name appears in the header bar"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "User header bar shows usage counter 'X/3 today' for free user",
+    "steps": [
+      "Login as free user who has done 1 transcription today",
+      "Verify header bar shows '1/3 today' or equivalent usage indicator"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "User header bar shows 'Unlimited' usage for pro user",
+    "steps": [
+      "Login as pro user",
+      "Verify header bar shows 'Unlimited' or equivalent for transcription limit"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "User header bar shows Upgrade button for free users",
+    "steps": [
+      "Login as free user",
+      "Verify header bar contains 'Upgrade' button or link",
+      "Verify clicking it opens upgrade/pricing page or modal"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "User header bar shows Logout button",
+    "steps": [
+      "Login as any user",
+      "Verify header bar contains Logout button",
+      "Click Logout and verify user is logged out (JWT cleared, login state reset)"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "Upgrade page shows Free plan card with RM0/month and 3/day limit",
+    "steps": [
+      "Navigate to upgrade/pricing page",
+      "Verify Free plan card exists",
+      "Verify it shows RM0/month",
+      "Verify it shows '3 transcriptions/day'"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "Upgrade page shows Pro plan card with RM29/month and unlimited",
+    "steps": [
+      "Navigate to upgrade/pricing page",
+      "Verify Pro plan card exists",
+      "Verify it shows RM29/month",
+      "Verify it shows 'Unlimited transcriptions'"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "Upgrade page highlights the user's current active plan",
+    "steps": [
+      "Login as free user and open upgrade page",
+      "Verify Free plan is visually highlighted (border, badge, or label 'Current Plan')"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "Upgrade page has payment button for Pro plan",
+    "steps": [
+      "Open upgrade page as free user",
+      "Verify Pro plan card has a payment/upgrade button",
+      "Clicking button triggers Stripe checkout or upgrade flow"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "Login modal is responsive on mobile (width ≤ 375px)",
+    "steps": [
+      "Set viewport to 375px width (iPhone SE)",
+      "Open login modal",
+      "Verify modal is fully visible and not clipped",
+      "Verify form fields and buttons are usable"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "Register modal is responsive on mobile (width ≤ 375px)",
+    "steps": [
+      "Set viewport to 375px width",
+      "Open register modal",
+      "Verify all form fields are visible and accessible",
+      "Verify modal does not overflow screen"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "User header bar is responsive on mobile (width ≤ 375px)",
+    "steps": [
+      "Login as a user",
+      "Set viewport to 375px width",
+      "Verify header bar elements (name, usage, logout) are visible and not overlapping"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "Upgrade/pricing page is responsive on mobile (width ≤ 375px)",
+    "steps": [
+      "Open upgrade page on 375px viewport",
+      "Verify plan cards stack vertically on mobile",
+      "Verify text and buttons are readable and not clipped"
+    ],
+    "passes": true
+  }
+]
